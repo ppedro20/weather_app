@@ -1,24 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:logger/logger.dart';
-import 'date.dart'; 
-
-final logger = Logger();
-String? _selectedCity;
-
-// Mapping of city names to OpenWeatherMap city IDs
-const Map<String, int> cityID = {
-  'Lisboa': 2267056,
-  'Leiria': 2267094,
-  'Coimbra': 2740636,
-  'Porto': 2735941,
-  'Faro': 2268337,
-};
-
-// Read API key from compile-time environment variable
-const apiKey = String.fromEnvironment('WEATHER_API_KEY');
+import 'date.dart';
+import 'weather.dart'; // importa WeatherInfo e fetchWeatherData
 
 void main() => runApp(const MyApp());
 
@@ -42,18 +25,14 @@ class DateTimeDisplay extends StatefulWidget {
 }
 
 class DateTimeDisplayState extends State<DateTimeDisplay> {
-  String _dateTimeString = '';
-  String _weatherData = '';
   late Timer _timer;
+  String _dateTimeString = '';
+  WeatherInfo? _weather; 
   bool _isLoading = false;
-
-  // Temperature unit: "metric" = Celsius, "imperial" = Fahrenheit
-  String _tempUnit = "metric"; // Default to Celsius
 
   @override
   void initState() {
     super.initState();
-    // Initialize current date/time display and start timer
     _dateTimeString = DateHelper.getCurrentDateTime();
     _timer = DateHelper.startTimer((newTime) {
       setState(() => _dateTimeString = newTime);
@@ -62,51 +41,22 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
 
   @override
   void dispose() {
-    _timer.cancel(); // Stop timer when widget is destroyed
+    _timer.cancel();
     super.dispose();
   }
 
-  // Fetch weather data for the selected city from OpenWeatherMap API
-  Future<void> fetchWeatherData() async {
-    if (_selectedCity == null) {
-      setState(() => _weatherData = "Please select a city first.");
-      return;
-    }
-
+  Future<void> _handleFetchWeather() async {
     setState(() {
       _isLoading = true;
-      _weatherData = '';
+      _weather = null;
     });
 
-    final cityId = cityID[_selectedCity];
-    final url =
-        "https://api.openweathermap.org/data/2.5/forecast?id=$cityId&APPID=$apiKey&units=$_tempUnit";
+    final result = await fetchWeatherData();
 
-    try {
-      final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final cityName = data['city']['name'];
-        final temp = data['list'][0]['main']['temp'];
-        final description = data['list'][0]['weather'][0]['description'];
-
-        final unitSymbol = _tempUnit == "metric" ? "°C" : "°F";
-
-        setState(() {
-          _weatherData =
-              "City: $cityName\nTemperature: $temp$unitSymbol\nCondition: $description";
-        });
-      } else {
-        setState(() {
-          _weatherData = "Error fetching weather: ${response.statusCode}";
-        });
-      }
-    } catch (e) {
-      setState(() => _weatherData = "Exception fetching weather: $e");
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    setState(() {
+      _weather = result;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -118,7 +68,6 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Display current date & time inside a card
             _buildCard(
               _buildReadOnlyField("Current Date & Time", _dateTimeString),
             ),
@@ -135,7 +84,7 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
                   const SizedBox(height: 8),
                   DropdownButton<String>(
                     hint: const Text("Choose a city"),
-                    value: _selectedCity,
+                    value: selectedCity,
                     isExpanded: true,
                     items: cityID.keys
                         .map(
@@ -144,7 +93,7 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
                         )
                         .toList(),
                     onChanged: (newCity) {
-                      setState(() => _selectedCity = newCity);
+                      setState(() => selectedCity = newCity);
                       logger.i(
                         "Selected city: $newCity, ID: ${cityID[newCity]}",
                       );
@@ -162,7 +111,7 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
                   const Text("Unit: "),
                   const SizedBox(width: 12),
                   DropdownButton<String>(
-                    value: _tempUnit,
+                    value: tempUnit,
                     items: const [
                       DropdownMenuItem(
                         value: "metric",
@@ -174,8 +123,8 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
                       ),
                     ],
                     onChanged: (value) {
-                      setState(() => _tempUnit = value!);
-                      if (_selectedCity != null) fetchWeatherData();
+                      setState(() => tempUnit = value!);
+                      if (selectedCity != null) _handleFetchWeather();
                     },
                   ),
                 ],
@@ -186,7 +135,7 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: ElevatedButton(
-                onPressed: _isLoading ? null : fetchWeatherData,
+                onPressed: _isLoading ? null : _handleFetchWeather,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -199,16 +148,45 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
               ),
             ),
 
-            // Display weather data if available
-            if (_weatherData.isNotEmpty)
-              _buildCard(_buildReadOnlyField("Weather Data", _weatherData)),
+            // Display weather data with icon
+            if (_weather != null)
+              _buildCard(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "City: ${_weather!.cityName}",
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    Text(
+                      "Temperature: ${_weather!.temperature}${tempUnit == "metric" ? "°C" : "°F"}",
+                    ),
+                    Text("Condition: ${_weather!.description}"),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Image.network(
+                        _weather!.iconUrl,
+                        width: 80,
+                        height: 80,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (_weather == null && selectedCity == null && !_isLoading)
+              _buildCard(
+                const Text(
+                  "Please select a city to view weather data.",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  // Helper method to build a read-only text field
   Widget _buildReadOnlyField(String label, String value) {
     return TextField(
       readOnly: true,
@@ -221,7 +199,6 @@ class DateTimeDisplayState extends State<DateTimeDisplay> {
     );
   }
 
-  // Helper method to wrap widgets inside a Card with padding
   Widget _buildCard(Widget child) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),

@@ -1,23 +1,33 @@
-# weather_app
+# 🌤️ Weather App
 
-A new Flutter project.
+A Flutter application that displays the **current date, time, and weather information** for a selected city. Users can choose the temperature unit (Celsius or Fahrenheit) and fetch real-time weather data using an API.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🚀 Features
 
-A few resources to get you started if this is your first Flutter project:
+- Live **current date and time** display.
+- Select a **city** from a dropdown.
+- Choose **temperature unit**: Celsius (°C) or Fahrenheit (°F).
+- Shows **weather conditions** with an icon.
+- Clean and responsive **UI** built with Flutter.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🛠️ Technologies
 
-to run:
+- **Flutter**: For building cross-platform UI.
+- **Dart**: Programming language.
+- **HTTP**: API calls for weather data.
 
-```
-flutter run -d chrome --dart-define=WEATHER_API_KEY=your_api_key
+---
 
-```
+## 🖼️ Screenshots
+
+![Home Screen](imgs/weatherapp-main.png)
+*Main screen with current date and weather options.*
+
+![Weather Display](imgs/weatherapp-city.png)
+*Weather info displayed after selecting a city.*
+
+---
